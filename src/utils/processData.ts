@@ -1,8 +1,13 @@
+import { IDataRow } from "../model";
+
+interface IProcessDataOption {
+  inputData: IDataRow[]
+}
 
 export default class ProcessData {
-  private inputData = [];
+  private inputData: IDataRow[] = [];
 
-  constructor({ inputData = [] }) {
+  constructor({ inputData = [] }: IProcessDataOption) {
     this.inputData = inputData;
   }
 

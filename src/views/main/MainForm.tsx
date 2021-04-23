@@ -2,9 +2,15 @@ import React, { FormEvent, useState } from 'react';
 import { createStyles, Theme, makeStyles } from '@material-ui/core/styles';
 import Input from '@material-ui/core/Input';
 import Button from '@material-ui/core/Button';
-import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
 import ProcessFile from '../../utils/processFile';
+import Backdrop from '@material-ui/core/Backdrop';
+import CircularStatic from '../../components/CircularStatis';
+import ProcessData from '../../utils/processData';
+import { VirtualDataStream } from '../../utils/dataStream';
+import { IDataRow } from '../../model';
+import { DistanceCalculator } from '../../utils/distance';
+import Snackbar from '@material-ui/core/Snackbar';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -19,7 +25,11 @@ const useStyles = makeStyles((theme: Theme) =>
     formLabel: {
       marginRight: '10px',
       fontWeight: 'bold'
-    }
+    },
+    backdrop: {
+      zIndex: theme.zIndex.drawer + 1,
+      color: '#fff',
+    },
   }),
 );
 
@@ -30,19 +40,69 @@ const MainForm = () => {
   const [originAddr, setOriginAddr] = useState('');
   const [inputFilePath, setInputFilePath] = useState('');
   const [inputFileName, setInputFileName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProcess, setLoadingProcess] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
   const onExportClick = async (event: FormEvent) => {
     event.preventDefault();
-    console.log(event);
     console.log(apiKey);
     console.log(destCity);
     console.log(originAddr);
     console.log(inputFilePath);
 
+    const distanceCalc = new DistanceCalculator({ apiKey });
     const processFile = new ProcessFile({ filePath: inputFilePath });
     const data = await processFile.readFilePromise();
-
     console.log(data);
+    // map destination address
+    const newData: IDataRow[] = data.map(item => {
+      return {...item, destAddr: `${item.wardName}, ${item.districtName}, ${destCity}`}
+    });
+    // process chunk data
+    const processData = new ProcessData({ inputData: newData });
+    const chunkData = processData.processToChunks({ maxChunk: 2 });
+    const virtualDataStream = new VirtualDataStream({ chunkData });
+    virtualDataStream.pushData();
+    // init process bar
+    setLoadingProcess(0);
+    let outData: IDataRow[] = [];
+    virtualDataStream.on('data', async (chunk) => {
+      try {
+        const chunkDataCalculated = await distanceCalc.calcDistanceChunksFake({ chunkData: chunk, fromAddr: originAddr });
+        outData = outData.concat(chunkDataCalculated);
+        console.log('VirtualDataStream.processPercent', virtualDataStream.getProcessPercent());
+        setLoadingProcess(virtualDataStream.getProcessPercent());
+        // end push data stream
+        const isPushedDone = virtualDataStream.getIsPushedDone();
+        if (isPushedDone) {
+          virtualDataStream.endPush();
+        }
+      } catch (error) {
+        virtualDataStream.destroy();
+      }
+    });
+    virtualDataStream.on('end', async () => {
+      setIsLoading(false);
+      if (!outData.length) {
+        console.log('Out data is empty');
+      }
+      // handle write file
+      try {
+        console.log('Out data item: ', outData[0]);
+        const header = Object.keys(outData[0]).map(value => {
+          return { id: value, title: value }
+        });
+        await processFile.writeFileAsync(header, outData);
+        setShowAlert(true);
+        setAlertMessage('Exported file succeed');
+      } catch (error) {
+        setAlertMessage(`Error: ${error.message}`);
+      }
+    });
+
+    setIsLoading(true);
 
     return data;
   }
@@ -57,25 +117,11 @@ const MainForm = () => {
   }
 
   const onChangeInputFile = (event: any): void => {
-    console.log(event)
     const file = event.target.files[0];
     if (file) {
-      console.log(file);
-      readFileHandler(file);
       setInputFileName(event.target.value);
       setInputFilePath(file.path);
     }
-  }
-
-  const readFileHandler = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (evt: any) => {
-      console.log(evt.target.result);
-    };
-    reader.onprogress = (evt: any) => {
-      console.log('process', evt)
-    };
-    reader.readAsText(file);
   }
 
   return (
@@ -114,6 +160,15 @@ const MainForm = () => {
           </Button>
         </div>
       </form>
+      <Backdrop className={classes.backdrop} open={isLoading}>
+        <CircularStatic progress={loadingProcess} />
+      </Backdrop>
+      <Snackbar
+        open={showAlert}
+        autoHideDuration={1000}
+        onClose={(e) => setShowAlert(false)}
+        message={alertMessage}
+      />
     </div>
   )
 }

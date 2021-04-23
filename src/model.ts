@@ -5,6 +5,11 @@ export interface IDataRow {
   districtName: string;
   wardCode: string;
   wardName: string;
+  destAddr?: string;
+  ggOriginAddr?: string;
+  ggDestAddr?: string;
+  ggDistance?: string;
+  ggDuration?: string;
 }
 
 export interface IProccessFile {
