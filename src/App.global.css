@@ -5,7 +5,8 @@
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
 body {
-  position: relative;
+  font-family: 'sans-serif',
+  /* position: relative;
   color: white;
   height: 100vh;
   background: linear-gradient(
@@ -18,7 +19,7 @@ body {
   overflow-y: hidden;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: center; */
 }
 
 button {

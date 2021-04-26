@@ -11,6 +11,7 @@ import { VirtualDataStream } from '../../utils/dataStream';
 import { IDataRow } from '../../model';
 import { DistanceCalculator } from '../../utils/distance';
 import Snackbar from '@material-ui/core/Snackbar';
+import HelpDialog from '../../components/HelpDialog';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -18,6 +19,17 @@ const useStyles = makeStyles((theme: Theme) =>
       '& > *': {
         margin: theme.spacing(1),
       },
+    },
+    mainForm: {
+      position: 'relative',
+      color: '#444',
+      height: 'auto',
+      background: '#cdcdcd',
+      fontFamily: 'arial'
+      // overflowY: 'hidden',
+      // display: 'flex',
+      // justifyContent: 'center',
+      // alignItems: 'center'
     },
     formControl: {
       marginBottom: '10px',
@@ -44,6 +56,7 @@ const MainForm = () => {
   const [loadingProcess, setLoadingProcess] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   const onExportClick = async (event: FormEvent) => {
     event.preventDefault();
@@ -98,6 +111,7 @@ const MainForm = () => {
         setShowAlert(true);
         setAlertMessage('Exported file succeed');
       } catch (error) {
+        setShowAlert(true);
         setAlertMessage(`Error: ${error.message}`);
       }
     });
@@ -125,7 +139,10 @@ const MainForm = () => {
   }
 
   return (
-    <div>
+    <div className={classes.mainForm}>
+      <Button type="button" variant="contained" color="default" onClick={(e) => setShowHelpDialog(true)}>
+        Help
+      </Button>
       <form className={classes.root} autoComplete="off" onSubmit={onExportClick}>
         <div className={classes.formControl}>
           <label className={classes.formLabel}>Input API Key</label>
@@ -165,10 +182,12 @@ const MainForm = () => {
       </Backdrop>
       <Snackbar
         open={showAlert}
-        autoHideDuration={1000}
+        autoHideDuration={1200}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         onClose={(e) => setShowAlert(false)}
         message={alertMessage}
       />
+      <HelpDialog open={showHelpDialog} onClose={(value) => setShowHelpDialog(false)} />
     </div>
   )
 }
