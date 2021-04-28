@@ -3,6 +3,7 @@ import * as path from 'path';
 import { parse } from '@fast-csv/parse';
 import { createObjectCsvWriter } from 'csv-writer';
 import { IDataRow, IProccessFile } from '../model';
+import Helpers from './helpers';
 
 export default class ProcessFile {
   private filePath;
@@ -30,8 +31,9 @@ export default class ProcessFile {
   }
 
   async writeFileAsync(header: any, data: any) {
+    const outPath = Helpers.getOutPath(this.filePath);
     const csvWriter = createObjectCsvWriter({
-      path: `${this.filePath}.out.csv`,
+      path: outPath,
       header
     })
     try {

@@ -1,9 +1,10 @@
 import React from 'react'
+import TheAppBar from '../components/TheAppBar'
 
 const AppHeader = () => {
   return (
     <div>
-      <h1 className="center">MyDist</h1>
+      <TheAppBar />
     </div>
   )
 }

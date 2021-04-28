@@ -11,7 +11,7 @@ import { VirtualDataStream } from '../../utils/dataStream';
 import { IDataRow } from '../../model';
 import { DistanceCalculator } from '../../utils/distance';
 import Snackbar from '@material-ui/core/Snackbar';
-import HelpDialog from '../../components/HelpDialog';
+import Helpers from '../../utils/helpers';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -25,11 +25,9 @@ const useStyles = makeStyles((theme: Theme) =>
       color: '#444',
       height: 'auto',
       background: '#cdcdcd',
-      fontFamily: 'arial'
-      // overflowY: 'hidden',
-      // display: 'flex',
-      // justifyContent: 'center',
-      // alignItems: 'center'
+      fontFamily: 'arial',
+      padding: '10px',
+      marginTop: '40px'
     },
     formControl: {
       marginBottom: '10px',
@@ -51,12 +49,12 @@ const MainForm = () => {
   const [destCity, setDestCity] = useState('');
   const [originAddr, setOriginAddr] = useState('');
   const [inputFilePath, setInputFilePath] = useState('');
+  const [outPutFilePath, setOutputFilePath] = useState('');
   const [inputFileName, setInputFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProcess, setLoadingProcess] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
-  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   const onExportClick = async (event: FormEvent) => {
     event.preventDefault();
@@ -64,6 +62,12 @@ const MainForm = () => {
     console.log(destCity);
     console.log(originAddr);
     console.log(inputFilePath);
+
+    if (!inputFilePath) {
+      setShowAlert(true);
+      setAlertMessage('(!) Please select file CSV');
+      return;
+    }
 
     const distanceCalc = new DistanceCalculator({ apiKey });
     const processFile = new ProcessFile({ filePath: inputFilePath });
@@ -128,6 +132,7 @@ const MainForm = () => {
     setOriginAddr('');
     setInputFileName('');
     setInputFilePath('');
+    setOutputFilePath('');
   }
 
   const onChangeInputFile = (event: any): void => {
@@ -135,14 +140,15 @@ const MainForm = () => {
     if (file) {
       setInputFileName(event.target.value);
       setInputFilePath(file.path);
+      const outPath = Helpers.getOutPath(file.path);
+      setOutputFilePath(outPath);
+    } else {
+      setInputFileName(inputFileName);
     }
   }
 
   return (
     <div className={classes.mainForm}>
-      <Button type="button" variant="contained" color="default" onClick={(e) => setShowHelpDialog(true)}>
-        Help
-      </Button>
       <form className={classes.root} autoComplete="off" onSubmit={onExportClick}>
         <div className={classes.formControl}>
           <label className={classes.formLabel}>Input API Key</label>
@@ -153,26 +159,44 @@ const MainForm = () => {
         <div className={classes.formControl}>
           <label className={classes.formLabel}>Input Destination City</label>
           <Grid item sm={12}>
-            <Input type="text" placeholder="Destination City" name="destCity" value={destCity} onChange={(event) => setDestCity(event.target.value)} required fullWidth />
+            <Input type="text" placeholder="i.e. LOTTE Mart Quận 7, Nguyễn Hữu Thọ, Tân Hưng, District 7"
+            name="destCity" value={destCity} onChange={(event) => setDestCity(event.target.value)} required fullWidth />
           </Grid>
         </div>
         <div className={classes.formControl}>
           <label className={classes.formLabel}>Input Origin Address</label>
           <Grid item sm={12}>
-            <Input placeholder="Origin Address" name="originAddr" value={originAddr} onChange={(event) => setOriginAddr(event.target.value)} required fullWidth />
+            <Input placeholder="i.e Ho Chi Minh City" name="originAddr" value={originAddr} onChange={(event) => setOriginAddr(event.target.value)} required fullWidth />
           </Grid>
         </div>
         <div>
-          <label className={classes.formLabel}>Select File CSV</label>
           <Grid item sm={12}>
-            <Input type="file" placeholder="File CSV" name="inputFilePath" value={inputFileName} onChange={(event) => onChangeInputFile(event)} fullWidth required />
+            <input
+              type="file"
+              accept=".csv"
+              style={{'display': 'none'}}
+              id="contained-button-file"
+              onChange={(event) => onChangeInputFile(event)}
+            />
+            <label htmlFor="contained-button-file">
+              <Button variant="contained" component="span">
+                Select File CSV
+              </Button>
+            </label>
+            <Input type="text" name="inputFilePath" readOnly value={inputFilePath} required fullWidth />
+          </Grid>
+        </div>
+        <div className={classes.formControl} style={!outPutFilePath ? {'display': 'none'} : {}}>
+          <label className={classes.formLabel}>Output File Path</label>
+          <Grid item sm={12}>
+            <Input disabled name="outPath" value={outPutFilePath} fullWidth />
           </Grid>
         </div>
         <div className={`${classes.root} center`}>
           <Button type="submit" variant="contained" color="primary">
             Export Result
           </Button>
-          <Button type="button" variant="contained" color="secondary" onClick={onResetClick}>
+          <Button type="button" variant="contained" color="default" onClick={onResetClick}>
             Reset
           </Button>
         </div>
@@ -187,7 +211,6 @@ const MainForm = () => {
         onClose={(e) => setShowAlert(false)}
         message={alertMessage}
       />
-      <HelpDialog open={showHelpDialog} onClose={(value) => setShowHelpDialog(false)} />
     </div>
   )
 }

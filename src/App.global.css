@@ -5,21 +5,8 @@
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
 body {
-  font-family: 'sans-serif',
-  /* position: relative;
-  color: white;
-  height: 100vh;
-  background: linear-gradient(
-    200.96deg,
-    #742afe -29.09%,
-    #57cddd 51.77%,
-    #2c349e 129.35%
-  );
-  font-family: sans-serif;
-  overflow-y: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center; */
+  font-family: 'sans-serif';
+  background-color: #dddddd;
 }
 
 button {
