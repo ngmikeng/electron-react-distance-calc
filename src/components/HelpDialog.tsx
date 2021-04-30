@@ -30,7 +30,7 @@ export default function HelpDialog(props: HelpDialogProps) {
       <DialogContent>
         <DialogContentText id="alert-dialog-description">
           Please follow the example below for the input file csv.
-          The header row and the columns "districtName", "wardName" are required and should not be empty.
+          The header row and the column with name "districtName" and "wardName" should not be empty.
         </DialogContentText>
         <h4>Example:</h4>
         <div className={classes.codeWrapper}>

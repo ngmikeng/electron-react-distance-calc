@@ -1,4 +1,4 @@
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { createStyles, Theme, makeStyles } from '@material-ui/core/styles';
 import Input from '@material-ui/core/Input';
 import Button from '@material-ui/core/Button';
@@ -12,6 +12,7 @@ import { IDataRow } from '../../model';
 import { DistanceCalculator } from '../../utils/distance';
 import Snackbar from '@material-ui/core/Snackbar';
 import Helpers from '../../utils/helpers';
+import { DEFAULT_DEST_CITY, DEFAULT_ORIGIN_ADDR, MAX_ELEMENTS } from '../../utils/constants';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -36,6 +37,13 @@ const useStyles = makeStyles((theme: Theme) =>
       marginRight: '10px',
       fontWeight: 'bold'
     },
+    defaultValue: {
+      fontSize: '10px',
+      color: '#888',
+      margin: '5px',
+      verticalAlign: 'top',
+      cursor: 'pointer'
+    },
     backdrop: {
       zIndex: theme.zIndex.drawer + 1,
       color: '#fff',
@@ -54,14 +62,66 @@ const MainForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProcess, setLoadingProcess] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
+  const [autoHideDuration, setAutoHideDuration] = useState<number | null>(2000);
   const [alertMessage, setAlertMessage] = useState('');
+  const [proceedChunkData, setProceedChunkData] = useState<IDataRow[][]>([]);
+  const [distanceCalcInstance, setDistanceCalcInstance] = useState<DistanceCalculator>(new DistanceCalculator({ apiKey }));
+  const [processFileInstance, setProcessFileInstance] = useState<ProcessFile>(new ProcessFile({ filePath: inputFilePath }));
+  const [processDataInstance, setProcessDataInstance] = useState<ProcessData>(new ProcessData());
+
+  useEffect(() => {
+    console.log('proceedChunkData', proceedChunkData);
+    if (proceedChunkData.length) {
+      setIsLoading(true);
+      const virtualDataStreamInstance = new VirtualDataStream();
+      virtualDataStreamInstance.pushData(proceedChunkData);
+      // init process bar
+      setLoadingProcess(0);
+      let outData: IDataRow[] = [];
+      virtualDataStreamInstance.on('data', async (chunk) => {
+        try {
+          const chunkDataCalculated = await distanceCalcInstance.calcDistanceChunks({ chunkData: chunk, fromAddr: originAddr });
+          outData = outData.concat(chunkDataCalculated);
+          console.log('virtualDataStreamInstance.processPercent', virtualDataStreamInstance.getProcessPercent());
+          setLoadingProcess(virtualDataStreamInstance.getProcessPercent());
+          // end push data stream
+          const isPushedDone = virtualDataStreamInstance.getIsPushedDone();
+          if (isPushedDone) {
+            virtualDataStreamInstance.endPush();
+          }
+        } catch (error) {
+          setIsLoading(false);
+          setLoadingProcess(0);
+          virtualDataStreamInstance.destroy();
+          showErrorMessage(error.message);
+        }
+      });
+      virtualDataStreamInstance.on('end', async () => {
+        setIsLoading(false);
+        setLoadingProcess(0);
+        if (!outData.length) {
+          console.log('Out data is empty');
+        }
+        // handle write file
+        try {
+          console.log('Out data item: ', outData[0]);
+          const header = Object.keys(outData[0]).map(value => {
+            return { id: value, title: value }
+          });
+          await processFileInstance.writeFileAsync(header, outData);
+          showMessage('Exported file succeed');
+        } catch (error) {
+          showErrorMessage(error.message);
+        }
+      });
+    }
+    return () => {
+      console.log('clean-up')
+    }
+  }, [proceedChunkData]);
 
   const onExportClick = async (event: FormEvent) => {
     event.preventDefault();
-    console.log(apiKey);
-    console.log(destCity);
-    console.log(originAddr);
-    console.log(inputFilePath);
 
     if (!inputFilePath) {
       setShowAlert(true);
@@ -69,60 +129,12 @@ const MainForm = () => {
       return;
     }
 
-    const distanceCalc = new DistanceCalculator({ apiKey });
-    const processFile = new ProcessFile({ filePath: inputFilePath });
-    const data = await processFile.readFilePromise();
-    console.log(data);
-    // map destination address
-    const newData: IDataRow[] = data.map(item => {
-      return {...item, destAddr: `${item.wardName}, ${item.districtName}, ${destCity}`}
-    });
-    // process chunk data
-    const processData = new ProcessData({ inputData: newData });
-    const chunkData = processData.processToChunks({ maxChunk: 2 });
-    const virtualDataStream = new VirtualDataStream({ chunkData });
-    virtualDataStream.pushData();
-    // init process bar
-    setLoadingProcess(0);
-    let outData: IDataRow[] = [];
-    virtualDataStream.on('data', async (chunk) => {
-      try {
-        const chunkDataCalculated = await distanceCalc.calcDistanceChunksFake({ chunkData: chunk, fromAddr: originAddr });
-        outData = outData.concat(chunkDataCalculated);
-        console.log('VirtualDataStream.processPercent', virtualDataStream.getProcessPercent());
-        setLoadingProcess(virtualDataStream.getProcessPercent());
-        // end push data stream
-        const isPushedDone = virtualDataStream.getIsPushedDone();
-        if (isPushedDone) {
-          virtualDataStream.endPush();
-        }
-      } catch (error) {
-        virtualDataStream.destroy();
-      }
-    });
-    virtualDataStream.on('end', async () => {
-      setIsLoading(false);
-      if (!outData.length) {
-        console.log('Out data is empty');
-      }
-      // handle write file
-      try {
-        console.log('Out data item: ', outData[0]);
-        const header = Object.keys(outData[0]).map(value => {
-          return { id: value, title: value }
-        });
-        await processFile.writeFileAsync(header, outData);
-        setShowAlert(true);
-        setAlertMessage('Exported file succeed');
-      } catch (error) {
-        setShowAlert(true);
-        setAlertMessage(`Error: ${error.message}`);
-      }
-    });
-
-    setIsLoading(true);
-
-    return data;
+    // set parameters
+    distanceCalcInstance.setApiKey(apiKey);
+    processFileInstance.setFilePath(inputFilePath);
+    const inputFileData = await processFileInstance.readFilePromise();
+    const chunkData = processDataInstance.processToChunks({ inputData: inputFileData, maxChunk: MAX_ELEMENTS, destCityName: destCity });
+    setProceedChunkData(chunkData);
   }
 
   const onResetClick = (event: FormEvent): void => {
@@ -147,6 +159,18 @@ const MainForm = () => {
     }
   }
 
+  const showMessage = (message: string) => {
+    setAutoHideDuration(2000);
+    setShowAlert(true);
+    setAlertMessage(message);
+  }
+
+  const showErrorMessage = (message: string) => {
+    setAutoHideDuration(null);
+    setShowAlert(true);
+    setAlertMessage(`Error: ${message}`);
+  }
+
   return (
     <div className={classes.mainForm}>
       <form className={classes.root} autoComplete="off" onSubmit={onExportClick}>
@@ -157,16 +181,26 @@ const MainForm = () => {
           </Grid>
         </div>
         <div className={classes.formControl}>
-          <label className={classes.formLabel}>Input Destination City</label>
+          <label className={classes.formLabel}>
+            Input Destination City
+            <span title="Use default value" className={classes.defaultValue}
+              onClick={() => setDestCity(DEFAULT_DEST_CITY)}>(!)
+            </span>
+          </label>
           <Grid item sm={12}>
-            <Input type="text" placeholder="i.e. LOTTE Mart Quận 7, Nguyễn Hữu Thọ, Tân Hưng, District 7"
+            <Input type="text" placeholder="i.e Ho Chi Minh City"
             name="destCity" value={destCity} onChange={(event) => setDestCity(event.target.value)} required fullWidth />
           </Grid>
         </div>
         <div className={classes.formControl}>
-          <label className={classes.formLabel}>Input Origin Address</label>
+          <label className={classes.formLabel}>
+            Input Origin Address
+            <span title="Use default value" className={classes.defaultValue}
+              onClick={() => setOriginAddr(DEFAULT_ORIGIN_ADDR)}>(!)
+            </span>
+          </label>
           <Grid item sm={12}>
-            <Input placeholder="i.e Ho Chi Minh City" name="originAddr" value={originAddr} onChange={(event) => setOriginAddr(event.target.value)} required fullWidth />
+            <Input placeholder="i.e. LOTTE Mart Quận 7, Nguyễn Hữu Thọ, Tân Hưng, District 7" name="originAddr" value={originAddr} onChange={(event) => setOriginAddr(event.target.value)} required fullWidth />
           </Grid>
         </div>
         <div>
@@ -206,9 +240,10 @@ const MainForm = () => {
       </Backdrop>
       <Snackbar
         open={showAlert}
-        autoHideDuration={1200}
+        autoHideDuration={autoHideDuration}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        onClose={(e) => setShowAlert(false)}
+        onClick={() => setShowAlert(false)}
+        onClose={() => setShowAlert(false)}
         message={alertMessage}
       />
     </div>

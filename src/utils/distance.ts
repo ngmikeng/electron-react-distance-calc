@@ -15,6 +15,10 @@ export class DistanceCalculator {
     this.client = new Client({ });
   }
 
+  setApiKey(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
   async simpleDistance({ fromAddr, toAddrs }: { fromAddr: string, toAddrs: string[] }): Promise<IDistanceResult> {
     try {
       const result = await this.client.distancematrix({

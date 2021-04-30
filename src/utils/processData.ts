@@ -1,24 +1,28 @@
 import { IDataRow } from "../model";
 
-interface IProcessDataOption {
-  inputData: IDataRow[]
+interface IProcessToChunksParam {
+  inputData: IDataRow[];
+  maxChunk: number;
+  destCityName?: string;
 }
 
 export default class ProcessData {
-  private inputData: IDataRow[] = [];
 
-  constructor({ inputData = [] }: IProcessDataOption) {
-    this.inputData = inputData;
-  }
+  constructor() {}
 
-  processToChunks({ maxChunk = 10 }) {
+  processToChunks({ inputData = [], maxChunk = 10, destCityName }: IProcessToChunksParam) {
+    if (destCityName) {
+      inputData = inputData.map(item => {
+        return {...item, destAddr: `${item.wardName}, ${item.districtName}, ${destCityName}`}
+      });
+    }
     let startIndex = 0;
-    let curChunk = this.inputData.slice(startIndex, maxChunk);
+    let curChunk = inputData.slice(startIndex, maxChunk);
     const chunks = [curChunk];
     while (curChunk.length) {
       startIndex = startIndex + maxChunk;
       const lastIndex = startIndex + maxChunk;
-      curChunk = this.inputData.slice(startIndex, lastIndex);
+      curChunk = inputData.slice(startIndex, lastIndex);
       if (curChunk.length) {
         chunks.push(curChunk);
       }

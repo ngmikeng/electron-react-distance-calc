@@ -11,6 +11,12 @@ export default class ProcessFile {
     this.filePath = path.resolve(filePath);
   }
 
+  setFilePath(filePath: string) {
+    if (filePath) {
+      this.filePath = path.resolve(filePath);
+    }
+  }
+
   readFilePromise(): Promise<IDataRow[]> {
     const dataRow: IDataRow[] = [];
     if (!this.filePath) {
